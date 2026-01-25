@@ -56,5 +56,5 @@ add_rust:
 # 1Password configuration
 op_vault:
   type: str
-  default: "Development"
+  default: "{{ project_name }}-dev"
   help: 1Password vault name for project secrets
