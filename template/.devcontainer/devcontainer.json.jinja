@@ -12,26 +12,6 @@
   "image": "mcr.microsoft.com/devcontainers/universal:2",
 {%- endif %}
 
-  "workspaceMount": "source={{ project_name }}-${devcontainerId},target=/workspaces/{{ project_name }},type=volume",
-  "workspaceFolder": "/workspaces/{{ project_name }}",
-
-  "mounts": [
-{%- if base_container == "node" %}
-    "source={{ project_name }}-cache,target=/home/node/.cache,type=volume",
-    "source={{ project_name }}-npm-cache,target=/home/node/.npm,type=volume"
-{%- elif base_container == "python" %}
-    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume"
-{%- elif base_container == "go" %}
-    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume",
-    "source={{ project_name }}-go-cache,target=/home/vscode/go,type=volume"
-{%- elif base_container == "java" %}
-    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume",
-    "source={{ project_name }}-m2-cache,target=/home/vscode/.m2,type=volume"
-{%- elif base_container == "universal" %}
-    "source={{ project_name }}-cache,target=/home/codespace/.cache,type=volume"
-{%- endif %}
-  ],
-
   "features": {
 {%- if add_python %}
     "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
