@@ -1,0 +1,60 @@
+_subdirectory: template
+_answers_file: .copier-answers.yml
+
+project_name:
+  type: str
+  help: Project name (lowercase, hyphens ok)
+
+project_description:
+  type: str
+  default: ""
+  help: One-line description (optional)
+
+# Base container choice
+base_container:
+  type: str
+  default: "node"
+  choices:
+    - node
+    - python
+    - go
+    - java
+    - universal
+  help: Primary language/runtime (node=Node.js 22, python=Python 3.12, go=Go 1.22, java=Java 21)
+
+# Additional languages to install (as individual flags)
+add_python:
+  type: bool
+  default: false
+  when: "{{ base_container != 'python' and base_container != 'universal' }}"
+  help: Add Python?
+
+add_node:
+  type: bool
+  default: false
+  when: "{{ base_container != 'node' and base_container != 'universal' }}"
+  help: Add Node.js?
+
+add_go:
+  type: bool
+  default: false
+  when: "{{ base_container != 'go' and base_container != 'universal' }}"
+  help: Add Go?
+
+add_java:
+  type: bool
+  default: false
+  when: "{{ base_container != 'java' and base_container != 'universal' }}"
+  help: Add Java?
+
+add_rust:
+  type: bool
+  default: false
+  when: "{{ base_container != 'universal' }}"
+  help: Add Rust?
+
+# 1Password configuration
+op_vault:
+  type: str
+  default: "Development"
+  help: 1Password vault name for project secrets

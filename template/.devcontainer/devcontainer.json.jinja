@@ -1,0 +1,66 @@
+{
+  "name": "{{ project_name }}",
+{%- if base_container == "node" %}
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+{%- elif base_container == "python" %}
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+{%- elif base_container == "go" %}
+  "image": "mcr.microsoft.com/devcontainers/go:1-1.22-bookworm",
+{%- elif base_container == "java" %}
+  "image": "mcr.microsoft.com/devcontainers/java:1-21-bookworm",
+{%- elif base_container == "universal" %}
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+{%- endif %}
+
+  "workspaceMount": "source={{ project_name }}-${devcontainerId},target=/workspaces/{{ project_name }},type=volume",
+  "workspaceFolder": "/workspaces/{{ project_name }}",
+
+  "mounts": [
+{%- if base_container == "node" %}
+    "source={{ project_name }}-cache,target=/home/node/.cache,type=volume",
+    "source={{ project_name }}-npm-cache,target=/home/node/.npm,type=volume"
+{%- elif base_container == "python" %}
+    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume"
+{%- elif base_container == "go" %}
+    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume",
+    "source={{ project_name }}-go-cache,target=/home/vscode/go,type=volume"
+{%- elif base_container == "java" %}
+    "source={{ project_name }}-cache,target=/home/vscode/.cache,type=volume",
+    "source={{ project_name }}-m2-cache,target=/home/vscode/.m2,type=volume"
+{%- elif base_container == "universal" %}
+    "source={{ project_name }}-cache,target=/home/codespace/.cache,type=volume"
+{%- endif %}
+  ],
+
+  "features": {
+{%- if add_python %}
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+{%- endif %}
+{%- if add_node %}
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+{%- endif %}
+{%- if add_go %}
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.22" },
+{%- endif %}
+{%- if add_java %}
+    "ghcr.io/devcontainers/features/java:1": { "version": "21" },
+{%- endif %}
+{%- if add_rust %}
+    "ghcr.io/devcontainers/features/rust:1": {},
+{%- endif %}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "onCreateCommand": "./.devcontainer/install-1password-cli.sh && curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
+  "postCreateCommand": "./.devcontainer/setup.sh",
+  "postStartCommand": "./.devcontainer/setup-secrets.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "planet57.vscode-beads"
+      ]
+    }
+  }
+}
