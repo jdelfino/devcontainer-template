@@ -2,21 +2,34 @@
 # setup.sh - Configure credentials from 1Password
 # Runs via postCreateCommand (container creation)
 #
-# Required env vars: OP_SERVICE_ACCOUNT_TOKEN, OP_VAULT
+# Reads from env vars or .op-token/.op-vault files (created by init-1password.sh)
 set -euo pipefail
 
 echo "=== Devcontainer Setup ==="
 
-# Require environment variables
+# Load token from file if env var not set
+if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && [ -f ".op-token" ]; then
+    export OP_SERVICE_ACCOUNT_TOKEN=$(cat .op-token)
+    echo "Loaded OP_SERVICE_ACCOUNT_TOKEN from .op-token"
+fi
+
+# Load vault from file if env var not set
+if [ -z "${OP_VAULT:-}" ] && [ -f ".op-vault" ]; then
+    export OP_VAULT=$(cat .op-vault)
+    echo "Loaded OP_VAULT from .op-vault"
+fi
+
+# Require token
 if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]; then
     echo "ERROR: OP_SERVICE_ACCOUNT_TOKEN not set"
-    echo "Fix: export OP_SERVICE_ACCOUNT_TOKEN=<token from 1Password service account>"
+    echo "Fix: Run .devcontainer/init-1password.sh on host first"
     exit 1
 fi
 
+# Require vault
 if [ -z "${OP_VAULT:-}" ]; then
     echo "ERROR: OP_VAULT not set"
-    echo "Fix: export OP_VAULT=<your vault name>"
+    echo "Fix: Run .devcontainer/init-1password.sh on host first"
     exit 1
 fi
 
