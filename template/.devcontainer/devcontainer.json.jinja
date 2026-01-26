@@ -11,7 +11,7 @@
     "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
 {%- endif %}
 {%- if base_container == "node" or add_node %}
-    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22", "installYarnUsingApt": false },
 {%- endif %}
 {%- if base_container == "go" or add_go %}
     "ghcr.io/devcontainers/features/go:1": { "version": "1.22" },
