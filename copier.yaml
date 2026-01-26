@@ -2,6 +2,7 @@ _subdirectory: template
 _answers_file: .copier-answers.yml
 
 _exclude:
+  - "{% if not use_1password %}.devcontainer/init-1password.sh.jinja{% endif %}"
   - "{% if not use_1password %}.devcontainer/install-1password-cli.sh{% endif %}"
   - "{% if not use_1password %}.devcontainer/setup.sh{% endif %}"
   - "{% if not use_1password %}.devcontainer/setup-secrets.sh.jinja{% endif %}"
