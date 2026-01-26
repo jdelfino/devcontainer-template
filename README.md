@@ -62,10 +62,12 @@ export OP_SERVICE_ACCOUNT_TOKEN="ops_your_token_here"
 export OP_VAULT="your-vault-name"  # e.g., "myproject-dev"
 ```
 
-For DevPod, you may also need to add them to your DevPod provider settings or pass them when starting:
+For DevPod, pass them when starting:
 
 ```bash
-devpod up github.com/user/repo --env OP_SERVICE_ACCOUNT_TOKEN=$OP_SERVICE_ACCOUNT_TOKEN --env OP_VAULT=$OP_VAULT
+devpod up github.com/user/repo \
+  --workspace-env OP_SERVICE_ACCOUNT_TOKEN=$OP_SERVICE_ACCOUNT_TOKEN \
+  --workspace-env OP_VAULT=$OP_VAULT
 ```
 
 #### Step 3: Create Required Vault Items
