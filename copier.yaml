@@ -1,6 +1,12 @@
 _subdirectory: template
 _answers_file: .copier-answers.yml
 
+_exclude:
+  - "{% if not use_1password %}.devcontainer/install-1password-cli.sh{% endif %}"
+  - "{% if not use_1password %}.devcontainer/setup.sh{% endif %}"
+  - "{% if not use_1password %}.devcontainer/setup-secrets.sh.jinja{% endif %}"
+  - "{% if not use_1password %}.env.1password.jinja{% endif %}"
+
 project_name:
   type: str
   help: Project name (lowercase, hyphens ok)
@@ -54,7 +60,13 @@ add_rust:
   help: Add Rust?
 
 # 1Password configuration
+use_1password:
+  type: bool
+  default: true
+  help: Use 1Password for secrets management?
+
 op_vault:
   type: str
   default: "{{ project_name }}-dev"
+  when: "{{ use_1password }}"
   help: 1Password vault name for project secrets

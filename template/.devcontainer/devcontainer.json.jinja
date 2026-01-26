@@ -25,9 +25,13 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
+{%- if use_1password %}
   "onCreateCommand": "./.devcontainer/install-1password-cli.sh && curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
   "postCreateCommand": "./.devcontainer/setup.sh",
   "postStartCommand": "./.devcontainer/setup-secrets.sh",
+{%- else %}
+  "onCreateCommand": "curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
+{%- endif %}
 
   "customizations": {
     "vscode": {
