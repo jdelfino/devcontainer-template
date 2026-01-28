@@ -52,13 +52,17 @@ if [ "$SSH_ITEM" = "null" ] || [ -z "$SSH_ITEM" ]; then
     exit 1
 fi
 
-if ! op read "op://${OP_VAULT}/${SSH_ITEM}/private key" > ~/.ssh/id_ed25519; then
+# Get private key in OpenSSH format
+if ! op read "op://${OP_VAULT}/${SSH_ITEM}/private key?ssh-format=openssh" > ~/.ssh/id_ed25519; then
     echo "ERROR: Could not read SSH private key"
     exit 1
 fi
 chmod 600 ~/.ssh/id_ed25519
 ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
-ssh-keyscan github.com >> ~/.ssh/known_hosts
+# Add github.com to known_hosts if not already present
+if ! grep -q "^github.com " ~/.ssh/known_hosts 2>/dev/null; then
+    ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+fi
 echo "SSH key configured"
 
 # Git identity
@@ -87,5 +91,29 @@ if ! op read "op://${OP_VAULT}/github-pat/credential" | gh auth login --with-tok
     exit 1
 fi
 echo "GitHub CLI authenticated"
+
+# Add env vars to shell profile for future sessions
+WORKSPACE_DIR=$(pwd)
+PROFILE_SNIPPET="
+# 1Password credentials for devcontainer
+if [ -f \"$WORKSPACE_DIR/.op-token\" ]; then
+    export OP_SERVICE_ACCOUNT_TOKEN=\$(cat \"$WORKSPACE_DIR/.op-token\")
+fi
+if [ -f \"$WORKSPACE_DIR/.op-vault\" ]; then
+    export OP_VAULT=\$(cat \"$WORKSPACE_DIR/.op-vault\")
+fi
+"
+
+# Add to bashrc if not already present
+if ! grep -q "1Password credentials for devcontainer" ~/.bashrc 2>/dev/null; then
+    echo "$PROFILE_SNIPPET" >> ~/.bashrc
+    echo "Added 1Password env vars to ~/.bashrc"
+fi
+
+# Add to zshrc if it exists and not already present
+if [ -f ~/.zshrc ] && ! grep -q "1Password credentials for devcontainer" ~/.zshrc; then
+    echo "$PROFILE_SNIPPET" >> ~/.zshrc
+    echo "Added 1Password env vars to ~/.zshrc"
+fi
 
 echo "=== Setup Complete ==="

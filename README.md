@@ -1,36 +1,58 @@
 # DevContainer Project Template
 
-A Copier template for bootstrapping development projects with:
-- DevContainer configuration (Node, Python, Go, Java, or Universal)
-- 1Password secrets integration
-- Claude Code configuration and skills
-- Beads (`bd`) issue tracking
+A [Copier](https://copier.readthedocs.io/) template that gives you a fully configured development environment with AI-assisted workflows out of the box. Open your project in a devcontainer and start building — credentials, tooling, and AI agent workflows are all pre-configured.
+
+**What you get:**
+- A devcontainer (Node, Python, Go, Java, Rust, or Universal) with [Claude Code](https://claude.ai/code) and [Beads](https://github.com/steveyegge/beads) pre-installed
+- 1Password integration for secrets (SSH keys, Git identity, GitHub PAT, project secrets)
+- AI agent workflows for planning (`/plan`), coordinated work (`/work`), and quick tasks (`/task`)
+- Issue tracking with Beads (`bd`) — dependency-aware, git-friendly, designed for AI agents
 
 ## Quick Start
 
-### Create a New Project
+### 1. Create a New Project
 
 ```bash
-# Install copier if you haven't
 pip install copier
-
-# Create new project from this template
 copier copy gh:jdelfino/devcontainer-template my-new-project
-
-# Or from a local clone
-copier copy /path/to/devcontainer-template my-new-project
 ```
 
 You'll be prompted for:
 - **project_name**: Your project name (lowercase, hyphens ok)
 - **project_description**: Optional one-liner
 - **base_container**: Node, Python, Go, Java, or Universal
-- **additional_languages**: Extra languages to install
-- **op_vault**: Your 1Password vault name
+- **additional languages**: Extra language runtimes to install (Python, Node, Go, Java, Rust)
+- **use_1password**: Whether to enable 1Password secrets integration
+- **op_vault**: Your 1Password vault name (if enabled)
 
-### Update an Existing Project
+### 2. Open in a DevContainer
 
-When the template improves, pull updates into your project:
+```bash
+# VS Code
+code my-new-project  # then "Reopen in Container"
+
+# DevPod
+devpod up my-new-project
+```
+
+The container will install all tools and configure credentials automatically on first launch.
+
+### 3. Start Working
+
+```bash
+# Plan a new feature
+/plan "Add user authentication"
+
+# Work on an existing epic
+/work bd-42
+
+# Quick fix
+/task bd-7
+```
+
+### Updating Your Project
+
+When the template improves, pull updates:
 
 ```bash
 cd my-project
@@ -41,28 +63,27 @@ Copier shows a diff and lets you selectively accept changes.
 
 ## Prerequisites
 
-### 1Password Setup
+### 1Password Setup (Optional)
 
-The template uses 1Password for credential management. This requires a one-time setup.
+The template can use 1Password for credential management. Skip this if you chose `use_1password: false`.
 
-#### Step 1: Create a Service Account
+#### Create a Service Account
 
 1. Go to [1password.com](https://my.1password.com) → **Developer Tools** → **Service Accounts**
-2. Click **New Service Account**
-3. Name it something like `devcontainer`
-4. Grant it access to the vault you'll use for development secrets
-5. Copy the token (starts with `ops_...`) - you won't see it again
+2. Click **New Service Account**, name it something like `devcontainer`
+3. Grant it access to the vault you'll use for development secrets
+4. Copy the token (starts with `ops_...`)
 
-#### Step 2: Set Environment Variables
+#### Set Environment Variables
 
-Add these to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.):
+Add to your shell profile (`~/.zshrc`, `~/.bashrc`):
 
 ```bash
 export OP_SERVICE_ACCOUNT_TOKEN="ops_your_token_here"
-export OP_VAULT="your-vault-name"  # e.g., "myproject-dev"
+export OP_VAULT="your-vault-name"
 ```
 
-For DevPod, pass them when starting:
+For DevPod:
 
 ```bash
 devpod up github.com/user/repo \
@@ -70,82 +91,62 @@ devpod up github.com/user/repo \
   --workspace-env OP_VAULT=$OP_VAULT
 ```
 
-#### Step 3: Create Required Vault Items
+#### Create Vault Items
 
-In your 1Password vault, create these items:
+In your 1Password vault, create:
 
-1. **SSH Key** (type: SSH Key)
-   - Add your private key
-   - Add the tag `devcontainer` (used to find it automatically)
+| Item | Type | Fields |
+|------|------|--------|
+| SSH key | SSH Key | Your private key. Tag it `devcontainer`. |
+| `git-config` | Secure Note | `name` (your full name), `email` (your git email) |
+| `github-pat` | Login or Secure Note | `credential` (a GitHub PAT with `repo` scope) |
 
-2. **git-config** (type: Secure Note)
-   - Add field `name`: Your full name for git commits
-   - Add field `email`: Your email for git commits
+## AI Agent Workflows
 
-3. **github-pat** (type: Login or Secure Note)
-   - Add field `credential`: A GitHub Personal Access Token
-   - Token needs `repo` scope (create at github.com → Settings → Developer settings → Personal access tokens)
+The template includes three workflows powered by Claude Code:
 
-#### Vault Naming Convention
+### `/plan` — Collaborative Planning
 
-The template defaults the vault name to `<project_name>-dev`. You can:
-- Use one vault per project (recommended for team projects)
-- Use a shared `Development` vault for personal projects
+Explores your codebase, discusses tradeoffs, then files structured issues in Beads. Use this before `/work` for new features or epics.
 
-### DevPod / VS Code
+### `/work` — Coordinated Implementation
 
-Works with DevPod CLI or VS Code Dev Containers extension.
+Orchestrates multi-task work: creates worktrees, spawns implementer agents, runs three specialized PR reviews (correctness, test quality, architecture), then creates the PR.
 
-```bash
-# DevPod
-devpod up my-project
+### `/task` — Quick Implementation
 
-# VS Code
-code my-project  # then "Reopen in Container"
-```
+Handles simple single-commit tasks end-to-end with test-first development and quality gates.
 
-## What's Included
+### Agent Skills
 
-### DevContainer
-- Debian Trixie base with language features
-- GitHub CLI (`gh`)
-- 1Password CLI (`op`)
-- Claude Code
-- Beads (`bd`)
-
-### Claude Skills
-- **coordinator**: Orchestrate multi-task work with worktrees
-- **implementer**: Test-first development for subagents
-- **reviewer**: Code review workflow
-- **task-completer**: Direct task completion
-
-### Commands
-- `/work <id>`: Coordinated workflow for epics/complex tasks
-- `/task <id>`: Direct implementation for simple tasks
-
-### Issue Tracking
-- Beads (`bd`) pre-configured
-- AGENTS.md with workflow documentation
-- Git hooks installed automatically
+| Skill | Purpose |
+|-------|---------|
+| **planner** | Collaborative epic decomposition and architectural planning |
+| **coordinator** | Orchestrates implementers, manages worktrees, runs PR reviews |
+| **implementer** | Test-first development, commits and pushes |
+| **task-completer** | Direct single-task completion |
+| **reviewer-correctness** | PR review for bugs, security, error handling |
+| **reviewer-tests** | PR review for test quality and integration coverage |
+| **reviewer-architecture** | PR review for duplication and pattern consistency |
+| **reviewer-plan** | Reviews filed issues for architectural problems |
 
 ## Adding Project Secrets
 
-1. Add 1Password references to `.env.1password`:
-   ```
-   API_KEY=op://${OP_VAULT}/my-api/key
-   DATABASE_URL=op://${OP_VAULT}/database/url
-   ```
+If using 1Password, add references to `.env.1password`:
 
-2. Rebuild the container (or run `.devcontainer/setup-secrets.sh`)
+```
+API_KEY=op://${OP_VAULT}/my-api/key
+DATABASE_URL=op://${OP_VAULT}/database/url
+```
 
-3. Secrets appear in `.env.local`
+Then rebuild the container (or run `.devcontainer/setup-secrets.sh`). Secrets appear in `.env.local`.
 
 ## Customization
 
-After scaffolding, customize:
+After scaffolding, customize for your project:
 
-- **Test commands**: Update skills to use your test runner
-- **Lint commands**: Add your linter to quality gates
+- **`CLAUDE.md`**: Add project-specific context (architecture, commands, conventions)
+- **Quality gates**: Update skill files to reference your test runner and linter
 - **Permissions**: Add tool permissions to `.claude/settings.json`
 - **Dependencies**: Modify `onCreateCommand` in `devcontainer.json`
 
@@ -160,12 +161,13 @@ template/
 │   └── install-1password-cli.sh  # 1Password CLI installation
 ├── .claude/
 │   ├── settings.json             # Claude permissions
-│   ├── skills/                   # Agent skills
-│   └── commands/                 # Slash commands
+│   ├── skills/                   # Agent skill definitions
+│   └── commands/                 # Slash commands (/plan, /work, /task)
 ├── .beads/
 │   └── config.yaml               # Issue tracking config
+├── CLAUDE.md                     # Project context for Claude (populate per-project)
 ├── AGENTS.md.jinja               # Workflow documentation
+├── .gitattributes                # Beads merge driver config
 ├── .gitignore.jinja
-├── .env.example
-└── .env.1password
+└── .env.example.jinja
 ```
