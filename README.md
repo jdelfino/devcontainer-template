@@ -161,6 +161,15 @@ DATABASE_URL=op://${OP_VAULT}/database/url
 
 Then rebuild the container (or run `.devcontainer/setup-secrets.sh`). Secrets appear in `.env.local`.
 
+## Performance & Persistence
+
+The template uses two strategies to balance performance and persistence:
+
+- **Workspace volume**: The workspace is stored on a named Docker volume (`<project>-workspace`) instead of a bind mount. This gives Linux-native I/O speed on macOS (no FUSE/VirtioFS overhead). The volume persists across container rebuilds.
+- **Claude session mount**: `~/.claude` is bind-mounted from the host so sessions, history, and credentials survive container rebuilds.
+
+SSH keys, git identity, and GitHub CLI are forwarded automatically from the host by VS Code/DevPod.
+
 ## Customization
 
 After scaffolding, customize for your project:

@@ -6,6 +6,13 @@
   "image": "mcr.microsoft.com/devcontainers/base:trixie",
 {%- endif %}
 
+  "workspaceMount": "source={{ project_name }}-workspace,target=/workspaces/{{ project_name }},type=volume",
+  "workspaceFolder": "/workspaces/{{ project_name }}",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+  ],
+
   "features": {
 {%- if base_container == "python" or add_python %}
     "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
