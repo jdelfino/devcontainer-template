@@ -8,7 +8,22 @@ A [Copier](https://copier.readthedocs.io/) template that gives you a fully confi
 - AI agent workflows for planning (`/plan`), coordinated work (`/work`), and quick tasks (`/task`)
 - Issue tracking with Beads (`bd`) — dependency-aware, git-friendly, designed for AI agents
 
-## Quick Start
+## Just Want the Claude Config?
+
+If you already have a development environment and just want the AI agent workflows, copy these directories into your project:
+
+```
+.claude/           # Settings, slash commands, and agent skills
+.beads/            # Issue tracking config
+CLAUDE.md          # Project context for Claude (fill in per-project)
+AGENTS.md          # Workflow documentation
+```
+
+You can grab them directly from the [`template/`](template/) directory in this repo. You'll also need [Claude Code](https://claude.ai/code) and [Beads](https://github.com/steveyegge/beads) installed.
+
+Then use `/plan`, `/work`, and `/task` in Claude Code to start working. See [AI Agent Workflows](#ai-agent-workflows) below for details.
+
+## Full Template Quick Start
 
 ### 1. Create a New Project
 
