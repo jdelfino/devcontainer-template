@@ -17,6 +17,16 @@ bd hooks install 2>/dev/null || true
 # Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
 
+{% if base_container == "node" or add_node -%}
+# Fix ownership of node_modules volume (Docker named volumes default to root)
+sudo chown vscode:vscode "/workspaces/{{ project_name }}/node_modules"
+
+{% endif -%}
+{% if base_container == "go" or add_go -%}
+# Fix ownership of go mod cache volume (Docker named volumes default to root)
+sudo chown -R vscode:vscode /home/vscode/go/pkg/mod
+
+{% endif -%}
 # TODO: Add project-specific tool installation here
 # Examples:
 #   go install github.com/air-verse/air@latest
