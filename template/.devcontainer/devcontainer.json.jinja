@@ -6,10 +6,16 @@
   "image": "mcr.microsoft.com/devcontainers/base:trixie",
 {%- endif %}
 
-  "workspaceMount": "source={{ project_name }}-workspace,target=/workspaces/{{ project_name }},type=volume",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/{{ project_name }},type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/{{ project_name }}",
 
   "mounts": [
+{%- if base_container == "node" or add_node %}
+    "source={{ project_name }}-node-modules,target=/workspaces/{{ project_name }}/node_modules,type=volume",
+{%- endif %}
+{%- if base_container == "go" or add_go %}
+    "source={{ project_name }}-go-mod,target=/home/vscode/go/pkg/mod,type=volume",
+{%- endif %}
     "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
   ],
 
@@ -34,11 +40,10 @@
 
 {%- if use_1password %}
   "initializeCommand": "./.devcontainer/init-1password.sh",
-  "onCreateCommand": "./.devcontainer/install-1password-cli.sh && curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
-  "postCreateCommand": "./.devcontainer/setup.sh",
+{%- endif %}
+  "postCreateCommand": "./.devcontainer/post-create.sh",
+{%- if use_1password %}
   "postStartCommand": "./.devcontainer/setup-secrets.sh",
-{%- else %}
-  "onCreateCommand": "curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
 {%- endif %}
 
   "remoteEnv": {

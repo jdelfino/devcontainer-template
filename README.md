@@ -165,7 +165,7 @@ Then rebuild the container (or run `.devcontainer/setup-secrets.sh`). Secrets ap
 
 The template uses two strategies to balance performance and persistence:
 
-- **Workspace volume**: The workspace is stored on a named Docker volume (`<project>-workspace`) instead of a bind mount. This gives Linux-native I/O speed on macOS (no FUSE/VirtioFS overhead). The volume persists across container rebuilds.
+- **Bind mount with volume overlays**: The workspace is bind-mounted from the host for easy file access. Heavy I/O directories (`node_modules`, Go module cache) are overlaid with named Docker volumes for native speed on macOS.
 - **Claude session mount**: `~/.claude` is bind-mounted from the host so sessions, history, and credentials survive container rebuilds.
 
 SSH keys, git identity, and GitHub CLI are forwarded automatically from the host by VS Code/DevPod.
@@ -185,6 +185,7 @@ After scaffolding, customize for your project:
 template/
 ├── .devcontainer/
 │   ├── devcontainer.json.jinja   # Container config
+│   ├── post-create.sh             # Tool installation (beads, claude, 1password)
 │   ├── setup.sh                  # 1Password vault access setup
 │   ├── setup-secrets.sh.jinja    # Project secrets injection
 │   └── install-1password-cli.sh  # 1Password CLI installation
