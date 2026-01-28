@@ -34,6 +34,10 @@
   "onCreateCommand": "curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash && curl -fsSL https://claude.ai/install.sh | bash",
 {%- endif %}
 
+  "remoteEnv": {
+    "BD_SOCKET": "/tmp/beads.sock"
+  },
+
   "customizations": {
     "vscode": {
       "extensions": [
