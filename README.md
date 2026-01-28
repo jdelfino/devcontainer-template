@@ -87,24 +87,20 @@ These tools must be installed on your **host machine** (not inside the container
 | [Copier](https://copier.readthedocs.io/) | Yes | `pip install copier` |
 | [Docker](https://www.docker.com/) or [DevPod](https://devpod.sh/) | Yes | For running devcontainers |
 | [1Password CLI (`op`)](https://1password.com/downloads/command-line/) | If using 1Password | `brew install 1password-cli` or [other methods](https://developer.1password.com/docs/cli/get-started/) |
-| [GitHub CLI (`gh`)](https://cli.github.com/) | Optional | `brew install gh` — used to auto-add SSH keys to GitHub during setup |
 
-Everything else (Claude Code, Beads, language runtimes, etc.) is installed automatically inside the container.
+SSH keys, git identity, and GitHub CLI auth are forwarded automatically from your host by VS Code and DevPod. Everything else (Claude Code, Beads, language runtimes, etc.) is installed inside the container.
 
 ### 1Password Setup (Optional)
 
 The template can use 1Password for credential management. Skip this if you chose `use_1password: false`.
 
-The only prerequisite is having the [1Password CLI (`op`)](https://1password.com/downloads/command-line/) installed and signed in on your host machine. Everything else is automated:
+1Password is used for **project secrets** (API keys, database URLs, etc.), not for SSH or git identity — those are forwarded from your host automatically.
 
 1. **Install and sign in to `op`** on your host
 2. **Open the project in a devcontainer** — the init script runs automatically and creates:
    - A 1Password vault (named `<project>-dev` by default)
-   - An SSH key (stored in the vault, tagged `devcontainer`)
-   - A `git-config` item (populated from your local git settings)
-   - A `github-pat` placeholder (you'll need to paste a real token)
    - A service account with vault access (token saved to `.op-token`)
-3. **Add your GitHub PAT** — edit the `github-pat` item in 1Password and replace the placeholder with a [Personal Access Token](https://github.com/settings/tokens) (needs `repo` scope)
+3. **Add project secrets** to `.env.1password` (see [Adding Project Secrets](#adding-project-secrets))
 
 On subsequent container rebuilds, the init script detects existing items and skips creation.
 
