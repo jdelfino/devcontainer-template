@@ -80,16 +80,22 @@ Everything else (Claude Code, Beads, language runtimes, etc.) is installed autom
 
 The template can use 1Password for credential management. Skip this if you chose `use_1password: false`.
 
-#### Create a Service Account
+The only prerequisite is having the [1Password CLI (`op`)](https://1password.com/downloads/command-line/) installed and signed in on your host machine. Everything else is automated:
 
-1. Go to [1password.com](https://my.1password.com) → **Developer Tools** → **Service Accounts**
-2. Click **New Service Account**, name it something like `devcontainer`
-3. Grant it access to the vault you'll use for development secrets
-4. Copy the token (starts with `ops_...`)
+1. **Install and sign in to `op`** on your host
+2. **Open the project in a devcontainer** — the init script runs automatically and creates:
+   - A 1Password vault (named `<project>-dev` by default)
+   - An SSH key (stored in the vault, tagged `devcontainer`)
+   - A `git-config` item (populated from your local git settings)
+   - A `github-pat` placeholder (you'll need to paste a real token)
+   - A service account with vault access (token saved to `.op-token`)
+3. **Add your GitHub PAT** — edit the `github-pat` item in 1Password and replace the placeholder with a [Personal Access Token](https://github.com/settings/tokens) (needs `repo` scope)
 
-#### Set Environment Variables
+On subsequent container rebuilds, the init script detects existing items and skips creation.
 
-Add to your shell profile (`~/.zshrc`, `~/.bashrc`):
+#### Existing 1Password Setup
+
+If you already have a service account token, set these environment variables before opening the container:
 
 ```bash
 export OP_SERVICE_ACCOUNT_TOKEN="ops_your_token_here"
@@ -103,16 +109,6 @@ devpod up github.com/user/repo \
   --workspace-env OP_SERVICE_ACCOUNT_TOKEN=$OP_SERVICE_ACCOUNT_TOKEN \
   --workspace-env OP_VAULT=$OP_VAULT
 ```
-
-#### Create Vault Items
-
-In your 1Password vault, create:
-
-| Item | Type | Fields |
-|------|------|--------|
-| SSH key | SSH Key | Your private key. Tag it `devcontainer`. |
-| `git-config` | Secure Note | `name` (your full name), `email` (your git email) |
-| `github-pat` | Login or Secure Note | `credential` (a GitHub PAT with `repo` scope) |
 
 ## AI Agent Workflows
 
