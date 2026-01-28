@@ -4,7 +4,7 @@ A [Copier](https://copier.readthedocs.io/) template that gives you a fully confi
 
 **What you get:**
 - A devcontainer (Node, Python, Go, Java, Rust, or Universal) with [Claude Code](https://claude.ai/code) and [Beads](https://github.com/steveyegge/beads) pre-installed
-- 1Password integration for secrets (SSH keys, Git identity, GitHub PAT, project secrets)
+- Optional 1Password integration for project secrets (API keys, database URLs, etc.)
 - AI agent workflows for planning (`/plan`), coordinated work (`/work`), and quick tasks (`/task`)
 - Issue tracking with Beads (`bd`) — dependency-aware, git-friendly, designed for AI agents
 
@@ -50,7 +50,7 @@ code my-new-project  # then "Reopen in Container"
 devpod up my-new-project
 ```
 
-The container will install all tools and configure credentials automatically on first launch.
+The container will install all tools automatically on first launch. SSH and git identity are forwarded from your host.
 
 ### 3. Start Working
 
@@ -176,7 +176,7 @@ After scaffolding, customize for your project:
 template/
 ├── .devcontainer/
 │   ├── devcontainer.json.jinja   # Container config
-│   ├── setup.sh                  # 1Password credential setup
+│   ├── setup.sh                  # 1Password vault access setup
 │   ├── setup-secrets.sh.jinja    # Project secrets injection
 │   └── install-1password-cli.sh  # 1Password CLI installation
 ├── .claude/
