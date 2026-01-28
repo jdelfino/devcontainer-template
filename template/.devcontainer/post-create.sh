@@ -10,8 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 "$SCRIPT_DIR/install-1password-cli.sh"
 
 {% endif -%}
-# Install beads
+# Install beads and git hooks
 curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+bd hooks install 2>/dev/null || true
 
 # Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
