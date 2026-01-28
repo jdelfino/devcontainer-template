@@ -63,6 +63,19 @@ Copier shows a diff and lets you selectively accept changes.
 
 ## Prerequisites
 
+### Host Dependencies
+
+These tools must be installed on your **host machine** (not inside the container):
+
+| Tool | Required? | Install |
+|------|-----------|---------|
+| [Copier](https://copier.readthedocs.io/) | Yes | `pip install copier` |
+| [Docker](https://www.docker.com/) or [DevPod](https://devpod.sh/) | Yes | For running devcontainers |
+| [1Password CLI (`op`)](https://1password.com/downloads/command-line/) | If using 1Password | `brew install 1password-cli` or [other methods](https://developer.1password.com/docs/cli/get-started/) |
+| [GitHub CLI (`gh`)](https://cli.github.com/) | Optional | `brew install gh` — used to auto-add SSH keys to GitHub during setup |
+
+Everything else (Claude Code, Beads, language runtimes, etc.) is installed automatically inside the container.
+
 ### 1Password Setup (Optional)
 
 The template can use 1Password for credential management. Skip this if you chose `use_1password: false`.
