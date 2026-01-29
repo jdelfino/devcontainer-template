@@ -14,6 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
 bd hooks install 2>/dev/null || true
 
+# Start beads daemon with auto-push (commits and pushes to sync branch automatically)
+bd daemon start --auto-push 2>/dev/null || true
+
 # Install Claude Code
 curl -fsSL https://claude.ai/install.sh | bash
 
