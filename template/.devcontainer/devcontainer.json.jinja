@@ -43,7 +43,9 @@
 {%- endif %}
   "postCreateCommand": "./.devcontainer/post-create.sh",
 {%- if use_1password %}
-  "postStartCommand": "./.devcontainer/setup-secrets.sh",
+  "postStartCommand": "./.devcontainer/post-start.sh && ./.devcontainer/setup-secrets.sh",
+{%- else %}
+  "postStartCommand": "./.devcontainer/post-start.sh",
 {%- endif %}
 
   "remoteEnv": {
