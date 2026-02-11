@@ -16,6 +16,121 @@ The secondary problem: mature development processes (branch protection, automate
 
 Ship a GitHub template repo that gives any project a production-grade, agent-friendly development workflow. The enforcement is structural (GitHub branch protection, Actions, status checks). The intelligence is in skills (planning, implementation, review prompts). The result: agents work autonomously when things are clean, and humans get pulled in with focused context only when something needs judgment.
 
+## GitHub Issues Model
+
+The entire workflow is built on GitHub Issues with native sub-issue and dependency relationships. This section explains the model before diving into the architecture that operates on it.
+
+### Issue Hierarchy
+
+```
+#20 Parent Issue: "Add rate limiting to the API"          [epic/feature]
+ ├── #21 Child: "Add rate limiting middleware"            [task, no deps]
+ ├── #22 Child: "Add rate limit configuration"            [task, blocked by #21]
+ ├── #23 Child: "Add rate limit headers to responses"     [task, blocked by #21]
+ ├── #24 Child: "Add rate limit exceeded error handling"  [task, blocked by #22, #23]
+ ├── #25 Child: "Add rate limiting documentation"         [task, blocked by #24]
+ │
+ │   [After PR opened and reviewed...]
+ │
+ ├── #26 Child: "Missing null check on request.ip"        [review finding, blocking]
+ ├── #27 Child: "No test for concurrent request handling" [review finding, blocking]
+ └── #28 Child: "Rate limit store should be injected"     [review finding, should-fix]
+```
+
+### Three Types of Child Issues
+
+**Task issues** are created during planning. They represent work to be done — discrete, agent-session-sized units with clear acceptance criteria. Task issues have dependencies on each other (expressed via GitHub's native `blocked-by` relationship).
+
+**Review finding issues** are created by reviewer agents during PR review. They represent problems discovered in the implementation. Review findings are children of the parent issue, not the task issue, because they relate to the feature as a whole. Critical findings are marked as `blocking` the parent issue.
+
+**Follow-up issues** (v2) are non-blocking improvements identified during review — `should-fix` and `suggestion` severity. They stay in the backlog attached to the parent for future cleanup passes.
+
+### Issues and PRs
+
+Each non-leaf issue gets its own branch and PR. The PR's `fixes #N` references the issue it implements, and review findings attach to that issue.
+
+- **PR links to its issue:** The PR for feature #20 includes `fixes #20`. The PR for epic #10 includes `fixes #10`.
+- **Reviewers file against the PR's issue:** When reviewing #20's PR, findings become children of #20.
+- **Blocking is local:** Critical review findings block #20. The PR can't merge while #20 has open blocking children.
+- **Merge closes the issue:** When #20's PR merges, `fixes #20` closes #20.
+
+For leaf tasks (issues with no children), work happens as commits on the parent's branch rather than separate PRs — unless you want the granularity of per-task PRs, in which case the same model applies recursively.
+
+### Why This Model
+
+**Branch hierarchy mirrors issue hierarchy.** The structure is predictable — given an issue number, you know where its branch lives and what it targets. No ad-hoc decisions about branch naming or PR targets.
+
+**Each level is self-contained.** The orchestrator check for #20's PR only cares about #20's blocking children. It doesn't need to understand the full hierarchy. This makes the system composable — add more levels without changing the logic.
+
+**Review findings don't get lost.** By attaching findings to the issue being reviewed, they stay associated with that unit of work through its lifecycle.
+
+**Blocking is explicit and queryable.** GitHub's native dependency API lets the orchestrator check ask: "Does #N have any open children with the `blocking` label?" This is the gate that prevents premature merge.
+
+**Transitive unblocking works.** When a task completes, sibling tasks that depended on it become unblocked. GitHub tracks this natively — the `/work` command queries for unblocked children when deciding what to spawn.
+
+### Dependencies: Native GitHub vs. Labels
+
+GitHub Issues now supports native sub-issues and `blocked-by`/`blocking` relationships (via the GraphQL API and UI). The workflow uses these where possible:
+
+- **Parent/child hierarchy:** Native sub-issues
+- **Task-to-task dependencies:** Native `blocked-by` relationships (set during planning)
+- **Review-finding-blocks-parent:** Native `blocking` relationship (set when reviewer creates a `blocking`-severity finding)
+
+Labels are used for status and metadata, not for expressing dependencies:
+- `blocking` / `should-fix` / `suggestion` — severity of review findings
+
+### Hierarchical Branching
+
+Issue hierarchy maps directly to branch hierarchy. Each issue with children gets its own branch; child branches branch off their parent's branch, not main. PRs target their parent's branch.
+
+**Example: Three-level hierarchy**
+
+```
+Issues:                                          Branches:
+─────────────────────────────────────────────────────────────────────────────
+#10 Epic: "API overhaul"                         feat/10-api-overhaul (off main)
+ │                                                │
+ ├── #20 Feature: "Add rate limiting"            ├── feat/20-rate-limiting (off feat/10)
+ │    ├── #21 Task: "Add middleware"             │    (commits on feat/20, or sub-branch)
+ │    ├── #22 Task: "Add configuration"          │    (commits on feat/20, or sub-branch)
+ │    └── #26 Review finding (blocks #20)        │
+ │                                                │
+ └── #30 Feature: "Add authentication"           └── feat/30-authentication (off feat/10)
+      ├── #31 Task: "Add JWT validation"              (commits on feat/30)
+      └── #32 Task: "Add refresh tokens"              (commits on feat/30)
+```
+
+**PR targets:**
+
+| PR | Source Branch | Target Branch | `fixes` |
+|----|---------------|---------------|---------|
+| PR for #10 | `feat/10-api-overhaul` | `main` | `fixes #10` |
+| PR for #20 | `feat/20-rate-limiting` | `feat/10-api-overhaul` | `fixes #20` |
+| PR for #30 | `feat/30-authentication` | `feat/10-api-overhaul` | `fixes #30` |
+
+**`/work #N` behavior:**
+
+1. Find #N's parent issue (if any)
+2. Determine base branch:
+   - If #N has a parent with issue number P → base is `feat/{P}-{slug}`
+   - If #N has no parent → base is `main`
+3. Create branch `feat/{N}-{slug}` off the base branch
+4. If #N is a leaf (no children): do the implementation work
+5. If #N has children: create the branch and PR, then wait for child work to fill it
+6. Open PR targeting the base branch with `fixes #N` in description
+
+**Merge flow (bottom-up):**
+
+1. Leaf tasks complete → commits land on parent feature branch
+2. Feature PR passes checks (no blocking children) → merges into epic branch
+3. When all feature PRs have merged → epic PR passes checks → merges into main
+
+**Review findings attach to the PR's issue.** When reviewing the PR for #20, findings become children of #20. They block #20's PR from merging into `feat/10-api-overhaul`. They don't directly block #10 — that's handled by the fact that #20's PR hasn't merged yet.
+
+**The orchestrator check is scoped to one level.** For #20's PR, it asks: "Does #20 have open blocking children?" It doesn't look up at #10 or down into task-level details. Each PR/issue pair is self-contained.
+
+**Opt-in complexity.** Simple projects don't need this. If every issue is top-level, every branch comes off main, every PR targets main. The hierarchy exists for projects that need to organize larger efforts — you use as many levels as make sense for your work.
+
 ## System Architecture
 
 ### Layer 1: Enforcement (GitHub Configuration)
@@ -47,15 +162,17 @@ Each child issue is scoped to be completable in a single agent session with fres
 
 #### Implementation Skill
 
-Triggered by `/work #N` from a Claude Code terminal. The coordinator:
+Triggered by `/work #N` from a Claude Code terminal. The skill is recursive:
 
-- Picks up the issue
-- Creates a branch
-- Spawns implementer subagents for the work
-- Opens a PR when implementation is complete
-- PR description includes `fixes #N` referencing the parent issue
+1. Find #N's parent issue (if any) to determine the base branch
+2. Create branch `feat/{N}-{slug}` off the base branch (parent's branch, or main if no parent)
+3. Open PR targeting the base branch with `fixes #N` in the description
+4. **If #N is a leaf issue (no children):** spawn implementer subagents for the actual work
+5. **If #N has children:** spawn `/work #child` for each unblocked child issue (recursive)
 
-One issue, one session, one PR. Fresh context every time.
+The recursion bottoms out at leaf issues, where implementation actually happens. Working on an epic spawns orchestrators for its features, which spawn orchestrators for sub-features, which eventually hit leaves and spawn implementers.
+
+One issue, one branch, one PR. The branch hierarchy mirrors the issue hierarchy.
 
 #### Reviewer Skills
 
@@ -65,7 +182,7 @@ Three specialized reviewers, each a separate skill:
 - **Test reviewer** — test coverage, edge cases, test quality, integration coverage
 - **Architecture reviewer** — duplication, pattern consistency, separation of concerns, unnecessary complexity
 
-Each reviewer produces structured findings with severity levels.
+Each reviewer creates child issues under the PR's linked issue (parsed from `fixes #N`) with severity labels: `blocking`, `should-fix`, or `suggestion`. Critical findings are set as blocking that issue using GitHub's native dependency API.
 
 #### Fix Skill
 
@@ -85,15 +202,6 @@ Event-driven workflows that wire everything together. Each Action is stateless a
 3. Issues are labeled by severity: `blocking`, `should-fix`, `suggestion`
 4. `blocking` issues are set as blocking the parent issue using GitHub's native dependency API
 
-#### Dependency Resolution Workflow
-
-**Trigger:** Issue closed
-
-**Action:**
-1. Check if the closed issue was blocking any other issues
-2. For newly-unblocked issues, update labels (e.g., add `ready`)
-3. This enables the status check to re-evaluate
-
 #### Orchestrator Status Check
 
 **Trigger:** Issue events (opened, closed, labeled, unlabeled) and PR pushes
@@ -111,17 +219,26 @@ This is the brain of the system. Single Action that:
 
 **Trigger:** PR opened or synchronized
 
-Each guardrail check runs as an independent GitHub Actions job and reports its result as a native GitHub check run. No custom schema or collector Action — each check uses GitHub's built-in check run conclusions:
+Each guardrail check runs as an independent GitHub Actions job and reports its result as a native GitHub check run. Guardrails are stateless and simple — they detect, report, and nothing more. They don't file issues or manage overrides.
 
-- **`success`** → check passed, nothing to report
+**Check run conclusions:**
+
+- **`success`** → check passed, or human has approved (see override mechanism below)
 - **`neutral`** → warning-level finding; visible in PR checks UI but non-blocking
-- **`action_required`** → escalation-level finding; blocks merge until resolved
+- **`action_required`** → escalation-level finding; blocks merge until resolved or overridden
 
-Checks can attach **annotations** to specific files and lines in the PR diff, so findings appear inline where they matter — not buried in a comment thread.
+Checks attach **annotations** to specific files and lines in the PR diff, so findings appear inline where they matter.
 
-Branch protection requires all guardrail checks to pass. A `neutral` conclusion satisfies branch protection. An `action_required` conclusion blocks the PR. The human sees exactly which checks need attention in the standard PR checks UI without any custom aggregation layer.
+**Override mechanism:** Guardrail checks query for a non-stale approving PR review. If one exists, the check reports `success` even if violations are present — the human has reviewed the current state and accepted it. Any new commits make the approval stale, and guardrails go back to `action_required` until re-approved.
 
-When any check reports `action_required`, it also adds a `requires-human-review` label to the PR and posts a summary comment with the specific context needed for the human to make a decision.
+**Human workflow when guardrails fail:**
+
+1. Human sees guardrail failure in checks tab (with annotations pointing to specific issues)
+2. Human decides: fix or accept?
+3. **If fix:** Human files an issue as a child of the PR's parent issue, describing what to fix. `/cleanup #N` picks it up like any other blocking child.
+4. **If accept:** Human submits approving PR review (with comment explaining why the violations are acceptable). Guardrails re-run, see non-stale approval, report `success`.
+
+This keeps guardrails simple (detect and report only) while ensuring all fix work is tracked as issues and human overrides use the native PR review mechanism.
 
 ### Layer 4: Guardrail Check Library
 
@@ -149,13 +266,14 @@ Deterministic checks that catch things agents do wrong more often than humans. E
 
 Each check is a standalone GitHub Actions job that uses the [Checks API](https://docs.github.com/en/rest/checks) to report results. No custom schema — checks use GitHub's native primitives:
 
-**Check run conclusions map to severity:**
+**Check run conclusions:**
 
-| Severity | Check Run Conclusion | Effect |
-|----------|---------------------|--------|
-| Pass | `success` | No action needed |
-| Warn | `neutral` | Visible in PR checks UI, non-blocking |
-| Escalate | `action_required` | Blocks merge, adds `requires-human-review` label |
+| Finding | Check Run Conclusion | Effect |
+|---------|---------------------|--------|
+| No violations | `success` | No action needed |
+| Violations + non-stale approval | `success` | Human has accepted |
+| Minor violations | `neutral` | Visible in checks UI, non-blocking |
+| Significant violations, no approval | `action_required` | Blocks merge |
 
 **Annotations** attach findings to specific files and lines:
 ```yaml
@@ -164,6 +282,22 @@ Each check is a standalone GitHub Actions job that uses the [Checks API](https:/
   uses: actions/github-script@v7
   with:
     script: |
+      // Check for non-stale approval first
+      const reviews = await github.rest.pulls.listReviews({...});
+      const lastCommit = context.sha;
+      const hasValidApproval = reviews.data.some(r => 
+        r.state === 'APPROVED' && r.commit_id === lastCommit
+      );
+      
+      if (hasValidApproval) {
+        // Human has reviewed current state, pass even with violations
+        return github.rest.checks.create({
+          conclusion: 'success',
+          output: { title: 'Scope enforcement: approved by reviewer' }
+        });
+      }
+      
+      // No approval, report the violation
       await github.rest.checks.create({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -172,7 +306,7 @@ Each check is a standalone GitHub Actions job that uses the [Checks API](https:/
         conclusion: 'action_required',
         output: {
           title: 'Scope enforcement: 2 files outside task scope',
-          summary: 'PR modifies files not listed in issue #17',
+          summary: 'PR modifies files not listed in issue #17. Fix the violation or approve the PR to override.',
           annotations: [
             {
               path: 'src/auth/middleware.ts',
@@ -205,26 +339,32 @@ This architecture allows the check library to grow over time. Contributing a new
 
 ### Layer 5: Human Escalation
 
-Human escalation is handled through GitHub's native check run system rather than a custom orchestration layer.
+Human escalation uses native GitHub mechanisms: PR reviews and check run conclusions. No custom labels or comment parsing.
 
-When a guardrail check reports `action_required`, or when the re-review cycle cap is reached, or when the orchestrator status check determines human judgment is needed:
+**When humans get involved:**
 
-1. `requires-human-review` label is added to the PR
-2. Branch protection requires an approving review when this label is present
-3. The check run's `output.summary` and annotations provide the specific context needed for the human to make a decision — visible directly in the PR checks UI
-4. The human reviews the *decision*, not the whole PR. "This agent added a new dependency — here's what it is and why. Approve or reject."
+1. **Guardrail failures.** Human sees `action_required` check with annotations. Decides to fix (files issue) or accept (approves PR).
+2. **Reviewer findings.** Human sees blocking child issues. `/cleanup` addresses them, or human intervenes.
+3. **Re-review cap exceeded.** Orchestrator reports `action_required` after too many review cycles.
+4. **Agent self-escalation.** Agent can request human review by leaving a PR comment (human then decides whether to approve or provide guidance).
 
-PRs (or the implementation agent) can also proactively add `requires-human-review` at any point if the agent determines the changes warrant human judgment.
+**The approval as override:**
 
-**Escalation gradient (all using native GitHub check conclusions):**
+A non-stale PR approval serves as the universal override. When a human approves:
+- Guardrail checks see the approval and report `success` despite violations
+- The orchestrator sees the approval as a signal that remaining issues are accepted
+- The approval comment provides audit trail for why violations were accepted
 
-| Situation | Check Conclusion | Effect |
-|-----------|-----------------|--------|
-| Clean PR, no guardrails tripped | All `success` | Auto-merge |
-| Minor flags (commit message, slightly low test ratio) | `neutral` | Visible in checks UI, non-blocking |
-| Significant flags (scope creep, new deps, API changes) | `action_required` | Human review required with focused context |
-| Re-review cap exceeded | `action_required` | Human review required |
-| Agent self-identifies need for human judgment | Adds label directly | Human review required |
+New commits stale the approval. All checks re-run and will block again until either fixed or re-approved. This is intentionally friction — the human must re-engage after any change.
+
+**Escalation gradient:**
+
+| Situation | What Blocks | Human Action |
+|-----------|-------------|--------------|
+| Clean PR, no issues | Nothing | Auto-merge |
+| Guardrail violations | `action_required` check | Fix (file issue) or approve |
+| Blocking reviewer findings | Orchestrator check | `/cleanup` or approve |
+| Re-review cap exceeded | Orchestrator check | Review and approve |
 
 ## Workflow: End to End
 
@@ -245,20 +385,28 @@ Claude Code explores the codebase, discusses tradeoffs with the human, then crea
 ### 2. Implementation (Human + Claude Code terminal)
 
 ```
+human> /work #20
+```
+
+Coordinator determines #20 has no parent, so base branch is `main`. Creates branch `feat/20-rate-limiting` off main. Opens PR targeting main with `fixes #20` in the description. Since #20 has children, the coordinator then works through unblocked leaf tasks.
+
+```
 human> /work #21
 ```
 
-Coordinator creates branch `feat/21-rate-limiting-middleware`, spawns implementer subagents, opens PR with `fixes #20` in the description when done.
+Coordinator determines #21's parent is #20. Creates branch `feat/21-rate-limiting-middleware` off `feat/20-rate-limiting` (or, for simple projects, just commits directly to `feat/20-rate-limiting`). Spawns implementer subagents for the work. If using sub-branches, opens PR targeting `feat/20-rate-limiting` with `fixes #21`.
+
+For this example, assume leaf tasks are commits on the parent branch (simpler model). The work for #21 lands as commits on `feat/20-rate-limiting`.
 
 ### 3. Automated Review (GitHub Actions)
 
-PR open triggers the review workflow. Three reviewers run in parallel via `claude -p`. Findings:
+PR open (or new commits) triggers the review workflow on #20's PR. Three reviewers run in parallel via `claude -p`. Findings:
 
 - Correctness reviewer creates issue #26: "Missing null check on request.ip" → severity: `blocking` → set as blocking #20
 - Test reviewer creates issue #27: "No test for concurrent request handling" → severity: `blocking` → set as blocking #20
 - Architecture reviewer creates issue #28: "Rate limit store should be injected, not hardcoded" → severity: `should-fix` → child of #20 but not blocking
 
-Status check runs: #20 is blocked by #26 and #27. Check fails. PR can't merge.
+Status check runs: #20 has blocking children #26 and #27. Check fails. PR can't merge.
 
 ### 4. Guardrail Checks (GitHub Actions)
 
@@ -270,23 +418,27 @@ Guardrail checks run in parallel with review, each as an independent check run. 
 human> /cleanup #20
 ```
 
-Fix skill works through blocking issues #26 and #27. Pushes commits to the PR branch. Closes both issues.
+Fix skill works through blocking issues #26 and #27. Pushes commits to `feat/20-rate-limiting`. Closes both issues.
 
 ### 6. Re-evaluation (GitHub Actions)
 
 Issue close events trigger the status check. #20 has no more open blockers. Status check runs `claude -p` to assess: fixes were small and surgical (null check + one new test). Re-review not warranted. Check goes green.
 
-Auto-merge proceeds. PR merges. `fixes #20` closes the parent issue. #25 (documentation) becomes unblocked. Non-blocking issue #28 (dependency injection refactor) remains in the backlog with full context.
+### 7. Continue Implementation
 
-### 7. Next Task
-
-#22 and #23 were blocked by #21 (now closed via PR merge). Dependency resolution workflow unblocks them. Human picks up the next task:
+With review findings addressed, continue with remaining tasks:
 
 ```
 human> /work #22
 ```
 
-Cycle repeats.
+#22 was blocked by #21. Now that #21's work is done (commits landed on `feat/20-rate-limiting`), #22 is unblocked. Work continues on the same branch.
+
+This repeats for #23, #24, #25. Each task adds commits to `feat/20-rate-limiting`. Reviews may trigger again on significant changes.
+
+### 8. Merge
+
+When all tasks are complete and no blocking issues remain, #20's PR auto-merges into main. `fixes #20` closes #20. Non-blocking issue #28 (dependency injection refactor) remains in the backlog with full context.
 
 ## Template Repo Contents
 
@@ -296,7 +448,6 @@ agent-workflow-template/
 │   ├── workflows/
 │   │   ├── pr-review.yml              # Triggers reviewers on PR open
 │   │   ├── orchestrator-check.yml     # Status check: blocker evaluation + re-review
-│   │   ├── dependency-resolution.yml  # Unblocks issues when blockers close
 │   │   ├── guardrail-scope.yml        # Scope enforcement (native check run)
 │   │   ├── guardrail-test-ratio.yml   # Test-to-code ratio (native check run)
 │   │   ├── guardrail-dependencies.yml # Dependency change detection (native check run)
@@ -331,9 +482,8 @@ agent-workflow-template/
 - Setup script for branch protection and required status checks
 - Orchestrator status check Action (the brain — blocker evaluation, re-review assessment)
 - PR review workflow invoking three reviewer skills via `claude -p`
-- Dependency resolution workflow
 - Guardrail checks as independent workflow files using native GitHub check runs (scope, test ratio, dependency changes, API surface, commit messages)
-- Human escalation via `action_required` check conclusion + `requires-human-review` label
+- Human escalation via `action_required` check conclusion + PR approval as override
 - Planning, implementation, and cleanup skills (adapted from devcontainer-template)
 - Issue templates for tasks and review findings
 - Starter CLAUDE.md and workflow configuration
@@ -343,7 +493,7 @@ agent-workflow-template/
 
 - **Autonomous fix agents in Actions.** Fix agents running on the Actions runner directly, with a dev environment set up in the workflow. Removes the manual `/cleanup` step for well-defined fixes.
 - **Autonomous planning trigger.** File a GitHub issue to kick off planning without a terminal. Human reviews the plan (approve/reject the issue decomposition) before work begins.
-- **Autonomous task dispatch.** When an issue becomes unblocked and is labeled `ready`, an Action automatically invokes `/work` via `claude -p`. The full pipeline runs without human intervention for straightforward tasks.
+- **Autonomous task dispatch.** When an issue becomes unblocked (no open blockers), an Action automatically invokes `/work` via `claude -p`. The full pipeline runs without human intervention for straightforward tasks. (Requires GitHub to add filtering by dependency status, or a custom query workflow.)
 - **Expanded check library.** Community-contributed guardrail checks for specific frameworks, languages, and domains. Each check is just a GitHub Actions workflow file that reports a check run — no framework to learn. Django migration checks, TypeScript type export checks, security-focused checks for regulated industries, etc.
 - **Maintenance passes.** Periodic workflows that sweep `should-fix` and `suggestion` issues from the backlog, group them by file or concern, and open cleanup PRs.
 - **Metrics and reporting.** Track review cycle counts, guardrail trip rates, fix success rates. Surface patterns — if the same guardrail trips repeatedly, the CLAUDE.md or skills need tuning.
