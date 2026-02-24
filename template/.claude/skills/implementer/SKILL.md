@@ -15,14 +15,21 @@ This skill covers development only — no issue tracking, no commits, no pushes.
 - Mock properly in tests. Do not add production fallbacks to make tests pass.
 - No type casts that bypass the type system.
 - No optional chaining on required properties.
+- **Every production code change requires tests.** No exceptions for migrations, refactors, copy-paste, or "just wiring things up." If you wrote or modified production code, you must write tests for it. Never defer tests to a follow-up issue.
 
 ## Phase 1: Write Failing Tests
 
 Write tests for the behavior you are about to change or add. Do this **before** touching any production code.
 
+**This phase is NOT optional.** Common excuses that do NOT exempt you from writing tests:
+- "It's just a migration" — migrated code has new integration points that need testing
+- "It's just wiring up an API client" — API client calls, error handling, and auth headers need tests
+- "The old code didn't have tests" — that's a reason to add them, not skip them
+- "I'll add tests later" — no, tests ship with the code, always
+
 1. Read the relevant production code to understand current behavior
 2. Write new test cases that describe the desired behavior after your change
-3. Run the tests
+3. Run the tests using the appropriate quality gate targets (see **Quality Gates** in CLAUDE.md)
 
 **Gate:** Your new tests **fail** (or, for pure deletions/removals, you can write tests asserting the old behavior is gone — these will pass after implementation). If your new tests already pass, they are not testing anything new. Rewrite them.
 
@@ -32,7 +39,7 @@ Make the production code changes. Keep changes minimal and focused on the task.
 
 ## Phase 3: Verify
 
-Run all quality gates for the project (tests, type checking, linting).
+Run quality gates matching the code you changed. See the **Quality Gates** table in CLAUDE.md for all targets.
 
 **Gate:** All quality gate commands pass with zero errors. If any fails, fix the issues before proceeding.
 
@@ -73,3 +80,38 @@ If integration tests are needed, write them.
 Write any missing tests identified above. Then re-run quality gates.
 
 **Gate:** All tests pass, including your new coverage additions. If you identified no gaps in Steps 2-3, document your reasoning (e.g., "Changes were purely deletions; added regression tests in Phase 1 confirming removed elements no longer render").
+
+## Phase 5: Summary
+
+**This must be the very last thing you output.** The coordinator reads your result — keep it concise to avoid polluting its context.
+
+Produce exactly this and nothing else after it:
+
+```
+IMPLEMENTATION RESULT: SUCCESS | FAILURE
+
+Task: <task-id or "N/A" if not provided>
+Commit: <full commit hash, or "N/A" on failure>
+
+## What changed
+- <1 bullet per logical change, max 5>
+
+## Files modified
+- <path> — <what changed in 1 phrase>
+
+## Test coverage
+- <1 bullet per test file added/modified, what it covers>
+
+## Concerns
+- <anything the coordinator should know, or "None">
+```
+
+If implementation failed, replace "What changed" with:
+
+```
+## Error
+<what went wrong — 1-3 sentences>
+
+## Attempted
+- <what you tried>
+```

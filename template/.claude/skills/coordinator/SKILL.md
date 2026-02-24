@@ -7,6 +7,8 @@ description: Single entry point for all implementation work. Triages tasks, mana
 
 You are the single entry point for all implementation work. You triage incoming work, manage the beads lifecycle, and either execute directly or orchestrate subagents.
 
+**Model guidance:** The coordinator should run on Opus 4.6. Implementer subagents should run on Sonnet 4.6 (`model: "sonnet"`).
+
 ## Phase 1: Triage
 
 ### 1. Parse Input
@@ -152,7 +154,7 @@ bd update <task-id> --set-labels wip --json
 
 #### b. Spawn Implementer Subagent
 
-Use the Task tool with `subagent_type: "general-purpose"`:
+Use the Task tool with `subagent_type: "general-purpose"` and `model: "sonnet"`:
 
 ```
 ROLE: Implementer
@@ -168,27 +170,18 @@ CONSTRAINTS:
 - Work ONLY in the worktree path above
 - Do NOT modify beads issues
 - Commit and push your work when implementer phases are complete
-- Report outcome in this format:
-
-IMPLEMENTATION RESULT: SUCCESS
-Task: <task-id>
-Commit: <full commit hash>
-Summary: <1-2 sentences>
-
-Or on failure:
-
-IMPLEMENTATION RESULT: FAILURE
-Task: <task-id>
-Error: <what went wrong>
-Details: <explanation or key error message>
+- Phase 5 of the implementer skill produces a structured summary — that is your final output
 ```
 
 #### c. Handle Result
+
+The implementer's final output is a structured summary (Phase 5). Only read that summary — ignore intermediate tool output from the subagent.
 
 **On SUCCESS:**
 ```bash
 bd close <task-id> --reason "Implemented" --json
 ```
+Check the "Concerns" section — file follow-up issues if needed.
 
 **On FAILURE:**
 - If recoverable: fix directly or spawn new subagent with clarification
@@ -196,6 +189,8 @@ bd close <task-id> --reason "Implemented" --json
 - Do NOT close the task
 
 ### 4. Pre-PR Review
+
+Reviews are **optional** for small, isolated changes (single-file fixes, typo corrections, config tweaks). For anything of any complexity — multi-file changes, new features, behavioral changes, refactors — reviews are **required**.
 
 After all tasks are complete, run 3 specialized reviews **in parallel** using the Task tool:
 
@@ -235,11 +230,11 @@ REFERENCE DIRS: <key directories in the existing codebase to compare against>
 - **Trivial issues** (typos, minor naming): fix directly, commit
 - **Non-trivial issues** (bugs, missing tests, duplication): file a beads issue, spawn implementer, close when fixed
 
-After all issues resolved, re-run quality gates.
+After all issues resolved, re-run quality gates per the **Quality Gates** table in CLAUDE.md.
 
 ### 5. Create PR and Hand Off
 
-Run quality gates in the worktree before creating the PR.
+Run quality gates per the **Quality Gates** table in CLAUDE.md in the worktree before creating the PR.
 
 **Do NOT create PR if any checks fail.** Fix locally first.
 
